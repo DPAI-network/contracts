@@ -1,5 +1,5 @@
 {
-  "name": "cnb-new-contracts",
+  "name": "contracts",
   "dependencies": {
     "@bgrusnak/solidity-icoset": "^0.7.5",
     "@nomicfoundation/hardhat-foundry": "^1.1.1",
