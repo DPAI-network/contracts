@@ -20,10 +20,12 @@ contract DPIAElections is
     using BitMaps for BitMaps.BitMap;
     using EnumerableMap for EnumerableMap.UintToAddressMap;
     using EnumerableMap for EnumerableMap.AddressToUintMap;
+
     error WrongMerkleProof(address sender, uint256 amount);
     error AlreadyVoted(address sender);
     error NotVoted(address sender);
     error NotPermittedTime();
+    error IndexOutOfRange(uint256 i);
 
     bool private _isInitialized;
     bytes32 public root;
@@ -112,6 +114,7 @@ contract DPIAElections is
     }
 
     function get(uint256 i) external view returns (address) {
+        if (i >= addresses.length()) revert IndexOutOfRange(i);
         return addresses.get(i);
     }
 
@@ -182,3 +185,6 @@ contract DPIAElections is
         }
     }
 }
+
+
+
