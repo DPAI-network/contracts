@@ -23,14 +23,24 @@ contract DPIAElections is
     error WrongMerkleProof(address sender, uint256 amount);
     error AlreadyVoted(address sender);
     error NotVoted(address sender);
+    error NotPermittedTime();
 
     bool private _isInitialized;
     bytes32 public root;
+    uint256 public beginTime;
+    uint256 public endTime;
+    uint256 public winnersCount;
     mapping(address => uint256) public votes;
     EnumerableMap.UintToAddressMap private addresses;
     EnumerableMap.AddressToUintMap private votedTarget;
     BitMaps.BitMap private voted;
     mapping(address => string) public names;
+
+    modifier whenVotable() {
+        if (block.timestamp < beginTime || block.timestamp > endTime)
+            revert NotPermittedTime();
+        _;
+    }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -58,7 +68,7 @@ contract DPIAElections is
         uint256 amount,
         bytes32[] memory proof,
         address voteFor
-    ) external {
+    ) external whenNotPaused whenVotable {
         bytes32 leaf = keccak256(abi.encode(msg.sender, amount));
         if (!MerkleProof.verify(proof, root, leaf))
             revert WrongMerkleProof(msg.sender, amount);
@@ -77,6 +87,26 @@ contract DPIAElections is
         votedTarget.set(msg.sender, i);
     }
 
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    function setBeginTime(uint256 newTime) external onlyOwner {
+        beginTime = newTime;
+    }
+
+    function setEndTime(uint256 newTime) external onlyOwner {
+        endTime = newTime;
+    }
+
+    function setWinnersCount(uint256 newWinnersCount) external onlyOwner {
+        winnersCount = newWinnersCount;
+    }
+
     function length() external view returns (uint256) {
         return addresses.length();
     }
@@ -85,7 +115,10 @@ contract DPIAElections is
         return addresses.get(i);
     }
 
-    function unvote(uint256 amount, bytes32[] memory proof) external {
+    function unvote(
+        uint256 amount,
+        bytes32[] memory proof
+    ) external whenNotPaused whenVotable {
         bytes32 leaf = keccak256(abi.encode(msg.sender, amount));
         if (!MerkleProof.verify(proof, root, leaf))
             revert WrongMerkleProof(msg.sender, amount);
@@ -95,5 +128,57 @@ contract DPIAElections is
         votes[voteFor] = votes[voteFor] - amount;
         voted.unset(userId);
         votedTarget.remove(msg.sender);
+    }
+
+    function getwinners() external view returns (address[] memory result) {
+        uint256 max;
+        uint256 pos;
+        uint256[] memory amounts;
+        address ta;
+        uint256 i;
+        uint256 j;
+        for (i = 0; i < winnersCount && i < addresses.length(); i++) {
+            result[i] = addresses.get(i);
+            amounts[i] = votes[result[i]];
+        }
+        for (i = 0; i < winnersCount - 1 && i < addresses.length() - 1; i++) {
+            for (j = i + 1; j < winnersCount && j < addresses.length(); j++) {
+                if (amounts[j] > amounts[i]) {
+                    ta = result[j];
+                    result[j] = result[i];
+                    result[i] = ta;
+                    max = amounts[j];
+                    amounts[j] = amounts[i];
+                    amounts[i] = max;
+                }
+            }
+        }
+        if (addresses.length() >= winnersCount) return result;
+        for (i = winnersCount; i < addresses.length(); i++) {
+            ta = addresses.get(i);
+            if (votes[ta] <= amounts[winnersCount - 1]) {
+                continue;
+            }
+            if (votes[ta] >= amounts[0]) {
+                for (j = 1; j < winnersCount; j++) {
+                    amounts[j] = amounts[j - 1];
+                    result[j] = result[j - 1];
+                }
+                amounts[0] = votes[ta];
+                result[0] = ta;
+                continue;
+            }
+            pos = winnersCount - 1;
+            for (j = winnersCount - 2; j > 0; j--) {
+                if (votes[ta] > amounts[j]) pos = j;
+            }
+            for (j = pos + 1; j < winnersCount; j++) {
+                amounts[j] = amounts[j - 1];
+                result[j] = result[j - 1];
+            }
+
+            amounts[pos] = votes[ta];
+            result[pos] = ta;
+        }
     }
 }
