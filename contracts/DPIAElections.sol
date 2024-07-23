@@ -55,11 +55,11 @@ contract DPIAElections is
 
     function initialize(address owner_) public initializer {
         if (_isInitialized) return;
+        _isInitialized = true;
         __Ownable_init(owner_);
         __UUPSUpgradeable_init();
         __Pausable_init();
         __ReentrancyGuard_init();
-        _isInitialized = true;
     }
 
     function setRoot(bytes32 newRoot) external onlyOwner {
