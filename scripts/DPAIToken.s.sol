@@ -20,19 +20,19 @@ contract DeployContractManager is DeployScript {
         initialize = abi.encodeCall(
             c.initialize,
             (
-                vm.envAddress("OWNER"),
+                vm.envAddress("WALLET"),
                 vm.envAddress("FEED"),
                 vm.envUint("PRICE"),
-                vm.envAddress("PAYWALLET")
+                payable(vm.envAddress("PAYWALLET"))
             )
         );
         data = bytes.concat(
             c.initialize.selector,
             abi.encode(
-                vm.envAddress("OWNER"),
+                vm.envAddress("WALLET"),
                 vm.envAddress("FEED"),
                 vm.envUint("PRICE"),
-                vm.envAddress("PAYWALLET")
+                payable(vm.envAddress("PAYWALLET"))
             )
         );
     }

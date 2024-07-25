@@ -13,7 +13,7 @@ contract DeployContractManager is DeployScript {
      function _run() internal override createOrUpgrade {
         DPAIElections c = new DPAIElections{salt:_salt}();
         implementation = address(c); 
-        initialize =  abi.encodeCall(c.initialize, (vm.envAddress("OWNER")));
-        data = bytes.concat(c.initialize.selector, abi.encode(vm.envAddress("OWNER")));
+        initialize =  abi.encodeCall(c.initialize, (vm.envAddress("WALLET")));
+        data = bytes.concat(c.initialize.selector, abi.encode(vm.envAddress("WALLET")));
     }
 }

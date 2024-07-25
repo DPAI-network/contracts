@@ -20,7 +20,7 @@ contract DeployContractManager is DeployScript {
         initialize = abi.encodeCall(
             c.initialize,
             (
-                vm.envAddress("OWNER"),
+                vm.envAddress("WALLET"),
                 vm.envBytes32("MERKLE_ROOT"),
                 vm.envAddress("DPAITOKEN_PROXY") 
             )
@@ -28,7 +28,7 @@ contract DeployContractManager is DeployScript {
         data = bytes.concat(
             c.initialize.selector,
             abi.encode(
-                vm.envAddress("OWNER"),
+                vm.envAddress("WALLET"),
                 vm.envBytes32("MERKLE_ROOT"),
                 vm.envAddress("DPAITOKEN_PROXY") 
             )
