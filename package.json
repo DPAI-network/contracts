@@ -14,17 +14,19 @@
     "ethereum-waffle": "^4.0.10",
     "hardhat": "^2.14.0",
     "inquirer": "^9.1.5",
-    "ora": "^6.3.0"
+    "ora": "^6.3.0",
+    "remove": "^0.1.5"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
     "@nomiclabs/hardhat-ethers": "^2.2.2",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
-    "ethers": "^5.7.0"
+    "ethers": "^5.7.0",
+    "sol-merger": "^4.4.1"
   },
   "scripts": {
     "createTestnet": "node forking.mjs",
     "deploy": "export $(grep -v '^#' .env | xargs) && forge script --rpc-url $RPC_URL  --broadcast -vvvv ",
-    "verify": "export $(grep -v '^#' .env | xargs) && forge verify-contract  -e $API_KEY --rpc-url $RPC_URL   "
+    "verify": "export $(grep -v '^#' .env | xargs) && forge verify-contract  -e $API_KEY --rpc-url $RPC_URL"
   }
 }

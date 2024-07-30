@@ -45,9 +45,7 @@ abstract contract DeployScript is Script {
         _;
         if (implementation == address(0)) {
             revert InvalidAddress("implementation address can not be zero");
-        }
-        address calculated = getProxyAddress(initialize);
-        console.log('Calculated proxy' , calculated);
+        } 
         if (proxyAddress == address(0)) {
              proxyAddress = address(new ERC1967Proxy{salt:_salt}(implementation, data));
          } else {

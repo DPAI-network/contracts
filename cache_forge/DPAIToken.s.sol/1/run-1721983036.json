@@ -1,0 +1,10 @@
+{
+  "transactions": [
+    {
+      "rpc": "wss://ethereum-rpc.publicnode.com"
+    },
+    {
+      "rpc": "wss://ethereum-rpc.publicnode.com"
+    }
+  ]
+}

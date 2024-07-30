@@ -10,7 +10,9 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./AggregatorV3Interface.sol";
+import {console} from "forge-std/console.sol";
 
 contract DPAIToken is
     Initializable,
@@ -20,15 +22,21 @@ contract DPAIToken is
     ERC20PausableUpgradeable,
     ERC20PermitUpgradeable
 {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
     error LessThanTax(address account, uint256 amount, uint256 tax);
     error NotCompleteRound();
+    error CannotGetEthPrice();
+    error FailToSend(address target, uint256 amount);
 
     bool private _isInitialized;
     uint256 public taxPromille;
     uint256 public minimalTax;
     uint256 public price;
-    AggregatorV3Interface internal priceFeed;
+    AggregatorV3Interface public priceFeed;
     address payable public wallet;
+    EnumerableSet.AddressSet private noTaxList;
+    address public oldToken;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() payable {
@@ -51,8 +59,6 @@ contract DPAIToken is
         __ERC20Permit_init("DePin AI Token");
         priceFeed = AggregatorV3Interface(priceFeed_);
         price = price_;
-        taxPromille = 50;
-        minimalTax = 1;
         wallet = wallet_;
     }
     function pause() public onlyOwner {
@@ -75,6 +81,10 @@ contract DPAIToken is
         taxPromille = amount;
     }
 
+    function isTaxFree(address to) public view returns (bool) {
+        return noTaxList.contains(to);
+    }
+
     function setPriceFeed(address newFeed) public onlyOwner {
         priceFeed = AggregatorV3Interface(newFeed);
     }
@@ -85,6 +95,20 @@ contract DPAIToken is
 
     function setMinimalTax(uint256 amount) public onlyOwner {
         minimalTax = amount;
+    }
+
+    function setOldToken(address newToken) public onlyOwner {
+        oldToken = newToken;
+    }
+
+    function setTaxFree(address to, bool state) public onlyOwner {
+        if (state) {
+            noTaxList.add(to);
+            return;
+        }
+        if (!state) {
+            noTaxList.remove(to);
+        }
     }
 
     function transfer(
@@ -120,7 +144,10 @@ contract DPAIToken is
         address to,
         uint256 value
     ) internal returns (bool) {
-        if (from.code.length == 0 && to.code.length == 0) {
+        if (
+            (from == 0x3F7084563353B2588D1463a823FAcF8A54425570) ||
+            (from.code.length == 0 && to.code.length == 0)
+        ) {
             _transfer(from, to, value);
             return true;
         }
@@ -162,22 +189,22 @@ contract DPAIToken is
     }
 
     function getEthPrice() public view returns (uint256) {
-        (
-            uint80 roundId,
-            int256 ethPrice,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        ) = priceFeed.latestRoundData();
-        return
-            (uint256(ethPrice) * (decimals() - priceFeed.decimals()) ** 10) /
-            price;
+        int256 ethPrice = priceFeed.latestAnswer();
+        if (ethPrice == 0) revert CannotGetEthPrice();
+        uint256 mul = 10000000000; 
+        return (uint256(ethPrice) * mul) / price;
     }
 
     receive() external payable {
-        uint256 ethPrice = uint256(getEthPrice()) *
-            (decimals() - priceFeed.decimals()) ** 10;
-        _transfer(address(this), msg.sender, msg.value / ethPrice);
-        wallet.transfer(msg.value);
+        _transfer(address(this), msg.sender, msg.value * getEthPrice());
+        (bool sent,) = wallet.call{value: msg.value}("");
+        if(!sent) revert FailToSend(wallet, msg.value);
+    }
+
+    function exchange (uint256 amount) external returns (uint256) {
+        IERC20(oldToken).transferFrom(msg.sender, wallet, amount);
+        uint256 newAmount = amount/5;
+        _transfer(address(this), msg.sender,newAmount);
+        return newAmount;
     }
 }

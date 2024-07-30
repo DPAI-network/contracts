@@ -3,10 +3,10 @@ pragma solidity ^0.8.25;
 
 import {DeployScript} from "contracts/DeployScript.sol";
 import {DPAIToken} from "contracts/DPAIToken.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "hardhat/console.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol"; 
+
 contract DeployContractManager is DeployScript {
-    bytes32 private _salt = keccak256("DPAIToken");
+    bytes32 private _salt = keccak256("DePin AI Token");
     constructor()
         DeployScript(
             vm.envUint("PRIVATE_KEY"),
@@ -35,5 +35,6 @@ contract DeployContractManager is DeployScript {
                 payable(vm.envAddress("PAYWALLET"))
             )
         );
+        
     }
 }
