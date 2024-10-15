@@ -12,6 +12,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./AggregatorV3Interface.sol";
+import "./IDPAIStaking.sol";
 import {console} from "forge-std/console.sol";
 
 contract DPAIToken is
@@ -22,6 +23,19 @@ contract DPAIToken is
     ERC20PausableUpgradeable,
     ERC20PermitUpgradeable
 {
+    struct Staked {
+        address recipient;
+        uint256 amountTotal;
+        uint256 amountStaked;
+        uint256 cliff;
+        uint256 duration;
+    }
+
+  /*      struct PaymentMultiple {
+        uint256 amount;
+        address client;
+    }
+ */
     using EnumerableSet for EnumerableSet.AddressSet;
 
     error LessThanTax(address account, uint256 amount, uint256 tax);
@@ -37,6 +51,7 @@ contract DPAIToken is
     address payable public wallet;
     EnumerableSet.AddressSet private noTaxList;
     address public oldToken;
+    address public stakingContract;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() payable {
@@ -93,6 +108,10 @@ contract DPAIToken is
         wallet = newWallet;
     }
 
+    function setStakingContract(address newContract) public onlyOwner {
+        stakingContract = newContract;
+    }
+
     function setMinimalTax(uint256 amount) public onlyOwner {
         minimalTax = amount;
     }
@@ -115,11 +134,24 @@ contract DPAIToken is
         address to,
         uint256 value
     ) public virtual override whenNotPaused returns (bool) {
-        if (msg.sender == owner()) {
+        if (msg.sender == owner() || to.code.length == 0) {
             _transfer(msg.sender, to, value);
             return true;
         }
         return _transferTaxed(msg.sender, to, value);
+    }
+
+    function stakedAmount(address account) public view returns (uint256) {
+        return IDPAIStaking(stakingContract).stakedAmount(account);
+    }
+
+    function balanceOf(
+        address account
+    ) public view virtual override returns (uint256) {
+        if (stakingContract == address(0)) return super.balanceOf(account);
+        return
+            super.balanceOf(account) -
+            IDPAIStaking(stakingContract).stakedAmount(account);
     }
 
     function transferFrom(
@@ -127,11 +159,17 @@ contract DPAIToken is
         address to,
         uint256 value
     ) public virtual override whenNotPaused returns (bool) {
+        if (balanceOf(from) < value)
+            revert ERC20InsufficientBalance(from, balanceOf(from), value);
         if (msg.sender == owner()) {
             _transfer(from, to, value);
             return true;
         }
         _spendAllowance(from, to, value);
+        if (taxPromille == 0 || to.code.length == 0) {
+            _transfer(from, to, value);
+            return true;
+        }
         return _transferTaxed(from, to, value);
     }
 
@@ -144,17 +182,18 @@ contract DPAIToken is
         address to,
         uint256 value
     ) internal returns (bool) {
-        if (
-            (from == 0x3F7084563353B2588D1463a823FAcF8A54425570) ||
-            (from.code.length == 0 && to.code.length == 0)
-        ) {
-            _transfer(from, to, value);
-            return true;
-        }
         if (minimalTax >= value) revert LessThanTax(from, value, minimalTax);
         uint256 tax = (value * taxPromille) / 1000;
         if (tax < minimalTax) tax = minimalTax;
-        if (tax > 0) _transfer(from, owner(), tax);
+        if (tax > 0) {
+            if (balanceOf(from) < value)
+                revert ERC20InsufficientBalance(
+                    from,
+                    balanceOf(from),
+                    value + tax
+                );
+            _transfer(from, owner(), tax);
+        }
         _transfer(from, to, value - tax);
         return true;
     }
@@ -187,24 +226,32 @@ contract DPAIToken is
         _transfer(address(this), to, value);
         return true;
     }
+/* 
+    function deduct(PaymentMultiple[] memory targets) external onlyOwner {
+        for (uint256 i = 0; i < targets.length; i++) {
+            _transfer(targets[i].client, address(this), targets[i].amount);
+        }
+    } */
 
-    function getEthPrice() public view returns (uint256) {
+    /* function getEthPrice() public view returns (uint256) {
         int256 ethPrice = priceFeed.latestAnswer();
         if (ethPrice == 0) revert CannotGetEthPrice();
-        uint256 mul = 10000000000; 
+        uint256 mul = 10000000000;
         return (uint256(ethPrice) * mul) / price;
-    }
+    } */
 
     receive() external payable {
-        _transfer(address(this), msg.sender, msg.value * getEthPrice());
-        (bool sent,) = wallet.call{value: msg.value}("");
-        if(!sent) revert FailToSend(wallet, msg.value);
+         revert CannotGetEthPrice();
+        /* _transfer(address(this), msg.sender, msg.value * getEthPrice());
+        (bool sent, ) = wallet.call{value: msg.value}("");
+        if (!sent) revert FailToSend(wallet, msg.value); */
     }
 
-    function exchange (uint256 amount) external returns (uint256) {
-        IERC20(oldToken).transferFrom(msg.sender, wallet, amount);
-        uint256 newAmount = amount/5;
-        _transfer(address(this), msg.sender,newAmount);
-        return newAmount;
+    function exchange(uint256 amount) external returns (uint256) {
+            revert CannotGetEthPrice();
+        /* IERC20(oldToken).transferFrom(msg.sender, wallet, amount);
+        uint256 newAmount = amount / 5;
+        _transfer(address(this), msg.sender, newAmount);
+        return newAmount; */
     }
 }
